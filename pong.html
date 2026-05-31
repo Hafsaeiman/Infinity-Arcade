@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>PONG</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#040810;--panel:#080e1a;--border:#0a1a3a;--text:#e0f0ff;--muted:#3a5a7a;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;touch-action:none;overscroll-behavior:none;}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100dvh;display:flex;flex-direction:column;align-items:center;overflow:hidden;}
+body::before{
+  content:'';position:fixed;inset:0;
+  background:
+    radial-gradient(ellipse at 0% 50%,rgba(0,100,255,0.12) 0%,transparent 50%),
+    radial-gradient(ellipse at 100% 50%,rgba(255,0,100,0.12) 0%,transparent 50%),
+    radial-gradient(ellipse at 50% 50%,rgba(0,255,200,0.04) 0%,transparent 60%);
+  pointer-events:none;z-index:0;
+}
+#app{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 12px env(safe-area-inset-bottom,12px);width:100%;max-width:560px;}
+
+#logo{
+  font-family:'Orbitron',sans-serif;font-weight:900;font-size:clamp(20px,5vw,28px);letter-spacing:10px;
+  background:linear-gradient(90deg,#0066ff,#00ffcc,#ff0066,#0066ff);
+  background-size:300%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:logo-shift 3s linear infinite;
+  filter:drop-shadow(0 0 12px rgba(0,200,255,0.4));
+}
+@keyframes logo-shift{0%{background-position:0%}100%{background-position:300%}}
+
+.hud{display:flex;gap:8px;width:100%;}
+.hud-pill{
+  flex:1;border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:1px;
+  position:relative;overflow:hidden;min-width:0;
+  background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);
+}
+.hp-label{font-size:clamp(7px,1.8vw,9px);letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
+.hp-val{font-family:'Orbitron',sans-serif;font-size:clamp(14px,4vw,20px);font-weight:700;white-space:nowrap;}
+.c-blue{color:#4488ff;text-shadow:0 0 10px #4488ff,0 0 20px rgba(68,136,255,.3);}
+.c-green{color:#00ffaa;text-shadow:0 0 10px #00ffaa,0 0 20px rgba(0,255,170,.3);}
+.c-red{color:#ff4466;text-shadow:0 0 10px #ff4466,0 0 20px rgba(255,68,102,.3);}
+
+#diff-row{display:flex;gap:6px;width:100%;}
+.diff-btn{
+  flex:1;padding:7px 4px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;
+  border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);
+  cursor:pointer;color:var(--muted);transition:all .2s;touch-action:manipulation;
+}
+.diff-btn.active-easy{border-color:#00ffaa;color:#00ffaa;background:rgba(0,255,170,.08);}
+.diff-btn.active-normal{border-color:#4488ff;color:#4488ff;background:rgba(68,136,255,.08);}
+.diff-btn.active-hard{border-color:#ff4466;color:#ff4466;background:rgba(255,68,102,.08);}
+
+.canvas-wrap{
+  position:relative;border-radius:12px;overflow:hidden;width:100%;
+  box-shadow:0 0 40px rgba(0,100,255,0.2),0 0 80px rgba(255,0,100,0.1);
+  border:1px solid rgba(100,150,255,0.2);
+}
+canvas{display:block;touch-action:none;cursor:none;}
+
+.overlay{position:absolute;inset:0;background:rgba(4,8,16,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:20;opacity:0;pointer-events:none;transition:opacity .4s;border-radius:12px;padding:20px;}
+.overlay.show{opacity:1;pointer-events:all;}
+.ov-title{font-family:'Orbitron',sans-serif;font-size:clamp(20px,6vw,30px);font-weight:900;letter-spacing:4px;animation:glow-pulse 1s ease-in-out infinite alternate;}
+@keyframes glow-pulse{from{text-shadow:0 0 20px currentColor;}to{text-shadow:0 0 50px currentColor,0 0 90px currentColor;}}
+.ov-stats{font-size:13px;color:#3a5a7a;letter-spacing:2px;text-align:center;line-height:2;}
+.ov-stats b{color:#4488ff;text-shadow:0 0 8px #4488ff;}
+.ov-btn{padding:10px 24px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;border-radius:8px;border:1px solid #4488ff;background:rgba(68,136,255,.1);cursor:pointer;color:#4488ff;box-shadow:0 0 12px rgba(68,136,255,.3);touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+
+.ctrl-row{display:flex;gap:8px;width:100%;justify-content:center;}
+.ctrl-btn{padding:10px 22px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;border-radius:8px;border:1px solid rgba(68,136,255,.4);background:rgba(68,136,255,.07);cursor:pointer;color:#4488ff;transition:all .2s;touch-action:manipulation;-webkit-tap-highlight-color:transparent;text-shadow:0 0 6px #4488ff;}
+.hint{font-size:clamp(9px,2.2vw,11px);color:var(--muted);letter-spacing:2px;text-align:center;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="logo">PONG</div>
+  <div class="hud">
+    <div class="hud-pill"><div class="hp-label">You</div><div class="hp-val c-blue" id="score-you">0</div></div>
+    <div class="hud-pill"><div class="hp-label">Rally</div><div class="hp-val c-green" id="rally">0</div></div>
+    <div class="hud-pill"><div class="hp-label">Best Rally</div><div class="hp-val c-green" id="best-rally">0</div></div>
+    <div class="hud-pill"><div class="hp-label">CPU</div><div class="hp-val c-red" id="score-cpu">0</div></div>
+  </div>
+  <div id="diff-row">
+    <button class="diff-btn" data-diff="easy" onclick="setDiff('easy')">EASY</button>
+    <button class="diff-btn active-normal" data-diff="normal" onclick="setDiff('normal')">NORMAL</button>
+    <button class="diff-btn" data-diff="hard" onclick="setDiff('hard')">HARD</button>
+  </div>
+  <div class="canvas-wrap" id="wrap">
+    <canvas id="canvas"></canvas>
+    <div class="overlay" id="overlay">
+      <div class="ov-title" id="ov-title">YOU WIN!</div>
+      <div class="ov-stats" id="ov-stats"></div>
+      <button class="ov-btn" onclick="startGame()">↺ Rematch</button>
+    </div>
+  </div>
+  <div class="ctrl-row"><button class="ctrl-btn" onclick="startGame()">↺ New Game</button></div>
+  <div class="hint">Drag / touch left side · Mouse on desktop · First to 7 wins</div>
+</div>
+<script>
+const canvas=document.getElementById('canvas');
+const ctx=canvas.getContext('2d');
+const WIN=7;
+let W,H,ball,padL,padR,scoreL=0,scoreR=0,rally=0,bestRally=0,running=false,animId;
+let diff='normal';
+const AI_SPD={easy:.07,normal:.12,hard:.19};
+
+function setDiff(d){
+  diff=d;
+  document.querySelectorAll('.diff-btn').forEach(b=>{
+    b.className='diff-btn'+(b.dataset.diff===d?` active-${d}`:'');
+  });
+  startGame();
+}
+
+function resize(){
+  const wrap=document.getElementById('wrap');
+  W=Math.min(wrap.clientWidth,560);H=Math.min(Math.round(W*.55),320);
+  canvas.width=W;canvas.height=H;
+}
+
+function startGame(){
+  resize();
+  const pH=Math.max(50,H*.22),pW=10;
+  padL={x:16,y:H/2-pH/2,w:pW,h:pH,vy:0};
+  padR={x:W-16-pW,y:H/2-pH/2,w:pW,h:pH,vy:0};
+  ball=newBall();scoreL=0;scoreR=0;rally=0;bestRally=0;
+  document.getElementById('overlay').classList.remove('show');
+  running=true;cancelAnimationFrame(animId);loop();updateHUD();
+}
+
+function newBall(){
+  const angle=(Math.random()*.5-.25)+(Math.random()>.5?0:Math.PI);
+  const spd=Math.min(W,H)*.013;
+  return{x:W/2,y:H/2,vx:Math.cos(angle)*spd,vy:Math.sin(angle)*spd,r:6,hue:0};
+}
+
+function loop(){if(!running)return;update();draw();animId=requestAnimationFrame(loop);}
+
+function update(){
+  const b=ball,spd=AI_SPD[diff];
+  const aim=b.y-padR.h/2;
+  padR.vy=Math.sign(aim-padR.y)*Math.min(Math.abs(aim-padR.y)*spd,H*.014);
+  padR.y=Math.max(0,Math.min(H-padR.h,padR.y+padR.vy));
+  b.x+=b.vx;b.y+=b.vy;b.hue=(b.hue+2)%360;
+  if(b.y-b.r<0){b.y=b.r;b.vy*=-1;}
+  if(b.y+b.r>H){b.y=H-b.r;b.vy*=-1;}
+  if(b.vx<0&&b.x-b.r<=padL.x+padL.w&&b.x-b.r>=padL.x&&b.y>=padL.y&&b.y<=padL.y+padL.h){
+    b.vx=Math.abs(b.vx)*1.04;b.vy+=(b.y-(padL.y+padL.h/2))*.08;rally++;if(rally>bestRally)bestRally=rally;updateHUD();
+  }
+  if(b.vx>0&&b.x+b.r>=padR.x&&b.x+b.r<=padR.x+padR.w&&b.y>=padR.y&&b.y<=padR.y+padR.h){
+    b.vx=-Math.abs(b.vx)*1.04;b.vy+=(b.y-(padR.y+padR.h/2))*.08;rally++;if(rally>bestRally)bestRally=rally;updateHUD();
+  }
+  if(b.x+b.r<0){scoreR++;rally=0;updateHUD();if(scoreR>=WIN){endGame('CPU WINS',false);return;}ball=newBall();}
+  if(b.x-b.r>W){scoreL++;rally=0;updateHUD();if(scoreL>=WIN){endGame('YOU WIN!',true);return;}ball=newBall();}
+}
+
+function endGame(title,win){
+  running=false;
+  document.getElementById('ov-title').textContent=title;
+  document.getElementById('ov-title').style.color=win?'#00ffaa':'#ff4466';
+  document.getElementById('ov-stats').innerHTML=`${scoreL} – ${scoreR} &nbsp;·&nbsp; Best rally <b>${bestRally}</b>`;
+  document.getElementById('overlay').classList.add('show');
+}
+function updateHUD(){
+  document.getElementById('score-you').textContent=scoreL;
+  document.getElementById('score-cpu').textContent=scoreR;
+  document.getElementById('rally').textContent=rally;
+  document.getElementById('best-rally').textContent=bestRally;
+}
+
+function draw(){
+  const c=ctx,b=ball;
+  // Deep space bg with subtle gradient
+  const bg=c.createLinearGradient(0,0,W,H);
+  bg.addColorStop(0,'#030610');bg.addColorStop(.5,'#050a18');bg.addColorStop(1,'#030610');
+  c.fillStyle=bg;c.fillRect(0,0,W,H);
+
+  // Star field
+  c.fillStyle='rgba(255,255,255,0.4)';
+  for(let i=0;i<30;i++){
+    const sx=(i*73+13)%W,sy=(i*97+31)%H,sr=.5+((i*41)%10)*.08;
+    c.beginPath();c.arc(sx,sy,sr,0,Math.PI*2);c.fill();
+  }
+
+  // Center line — dashed rainbow
+  c.setLineDash([8,8]);c.lineWidth=1.5;
+  const cl=c.createLinearGradient(W/2,0,W/2,H);
+  cl.addColorStop(0,'rgba(68,136,255,0.4)');cl.addColorStop(.5,'rgba(0,255,200,0.4)');cl.addColorStop(1,'rgba(255,68,102,0.4)');
+  c.strokeStyle=cl;c.beginPath();c.moveTo(W/2,0);c.lineTo(W/2,H);c.stroke();c.setLineDash([]);
+
+  // Score on canvas
+  c.font=`bold ${Math.round(H*.13)}px Orbitron,monospace`;c.textAlign='center';c.textBaseline='top';
+  c.fillStyle='rgba(68,136,255,0.18)';c.fillText(scoreL,W/2-40,6);
+  c.fillStyle='rgba(255,68,102,0.18)';c.fillText(scoreR,W/2+40,6);
+
+  // Left paddle — vivid blue gradient
+  const lp=c.createLinearGradient(padL.x,padL.y,padL.x+padL.w,padL.y+padL.h);
+  lp.addColorStop(0,'#0055ff');lp.addColorStop(1,'#00ccff');
+  c.shadowColor='#0055ff';c.shadowBlur=16;c.fillStyle=lp;
+  c.beginPath();c.roundRect(padL.x,padL.y,padL.w,padL.h,4);c.fill();
+  c.shadowBlur=0;
+
+  // Right paddle — vivid red gradient
+  const rp=c.createLinearGradient(padR.x,padR.y,padR.x+padR.w,padR.y+padR.h);
+  rp.addColorStop(0,'#ff0044');rp.addColorStop(1,'#ff8800');
+  c.shadowColor='#ff0044';c.shadowBlur=16;c.fillStyle=rp;
+  c.beginPath();c.roundRect(padR.x,padR.y,padR.w,padR.h,4);c.fill();
+  c.shadowBlur=0;
+
+  // Ball trail
+  for(let i=0;i<4;i++){
+    const a=(4-i)/4;const r=(4-i)/4;
+    c.fillStyle=`hsla(${b.hue+i*20},100%,60%,${a*.15})`;
+    c.beginPath();c.arc(b.x-b.vx*(i+1)*1.5,b.y-b.vy*(i+1)*1.5,b.r*r,0,Math.PI*2);c.fill();
+  }
+
+  // Ball — rainbow pulsing
+  const ballColor=`hsl(${b.hue},100%,60%)`;
+  const pulse=.8+.2*Math.sin(Date.now()/100);
+  c.shadowColor=ballColor;c.shadowBlur=22*pulse;
+  const bg2=c.createRadialGradient(b.x-b.r*.3,b.y-b.r*.3,0,b.x,b.y,b.r);
+  bg2.addColorStop(0,'#ffffff');bg2.addColorStop(.4,ballColor);bg2.addColorStop(1,`hsl(${b.hue+40},100%,40%)`);
+  c.fillStyle=bg2;c.beginPath();c.arc(b.x,b.y,b.r,0,Math.PI*2);c.fill();
+  c.shadowBlur=0;
+}
+
+// touch/mouse
+let dragging=false;
+canvas.addEventListener('touchstart',e=>{e.preventDefault();dragging=true;},{passive:false});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!dragging)return;const r=canvas.getBoundingClientRect();padL.y=Math.max(0,Math.min(H-padL.h,(e.touches[0].clientY-r.top)*(H/r.height)-padL.h/2));},{passive:false});
+canvas.addEventListener('touchend',()=>dragging=false,{passive:true});
+canvas.addEventListener('mousemove',e=>{const r=canvas.getBoundingClientRect();padL.y=Math.max(0,Math.min(H-padL.h,(e.clientY-r.top)*(H/r.height)-padL.h/2));});
+window.addEventListener('resize',()=>{if(running)startGame();});
+startGame();
+</script>
+</body>
+</html>

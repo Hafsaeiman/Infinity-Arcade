@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>SNAKE</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#050510;
+  --panel:#0d0d20;
+  --border:#2a1a4a;
+  --c1:#39ff14;
+  --c2:#ff00ff;
+  --c3:#ff6b35;
+  --c4:#ffe600;
+  --c5:#00eeff;
+  --text:#f0f0ff;
+  --muted:#6a5a8a;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;touch-action:none;overscroll-behavior:none;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Share Tech Mono',monospace;
+  min-height:100dvh;
+  display:flex;flex-direction:column;align-items:center;overflow:hidden;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background:
+    radial-gradient(ellipse at 20% 20%,rgba(57,255,20,0.08) 0%,transparent 50%),
+    radial-gradient(ellipse at 80% 80%,rgba(255,0,255,0.08) 0%,transparent 50%),
+    radial-gradient(ellipse at 50% 50%,rgba(0,238,255,0.04) 0%,transparent 60%);
+  pointer-events:none;z-index:0;
+}
+body::after{
+  content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(57,255,20,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(57,255,20,0.04) 1px,transparent 1px);
+  background-size:32px 32px;pointer-events:none;z-index:0;
+}
+#app{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 12px env(safe-area-inset-bottom,12px);width:100%;max-width:560px;}
+
+#logo{
+  font-family:'Orbitron',sans-serif;font-weight:900;font-size:clamp(20px,6vw,30px);
+  letter-spacing:8px;
+  background:linear-gradient(90deg,#39ff14,#00eeff,#ff00ff,#39ff14);
+  background-size:300% 100%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:shimmer 3s linear infinite;
+  filter:drop-shadow(0 0 12px rgba(57,255,20,0.5));
+}
+@keyframes shimmer{0%{background-position:0% 50%}100%{background-position:300% 50%}}
+
+.hud{display:flex;gap:8px;width:100%;}
+.hud-pill{
+  flex:1;border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:1px;
+  position:relative;overflow:hidden;min-width:0;
+  background:linear-gradient(135deg,rgba(57,255,20,0.07),rgba(0,238,255,0.05));
+  border:1px solid rgba(57,255,20,0.25);
+  box-shadow:0 0 10px rgba(57,255,20,0.08),inset 0 0 8px rgba(57,255,20,0.03);
+}
+.hud-pill::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,#39ff14,transparent);opacity:.6;}
+.hp-label{font-size:clamp(7px,1.8vw,9px);letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
+.hp-val{font-family:'Orbitron',sans-serif;font-size:clamp(14px,4vw,20px);font-weight:700;}
+.neon-green{color:#39ff14;text-shadow:0 0 8px #39ff14,0 0 20px rgba(57,255,20,.4);}
+.neon-pink{color:#ff00ff;text-shadow:0 0 8px #ff00ff,0 0 20px rgba(255,0,255,.4);}
+.neon-yellow{color:#ffe600;text-shadow:0 0 8px #ffe600,0 0 20px rgba(255,230,0,.4);}
+.neon-cyan{color:#00eeff;text-shadow:0 0 8px #00eeff,0 0 20px rgba(0,238,255,.4);}
+
+.canvas-wrap{
+  position:relative;border-radius:12px;overflow:hidden;width:100%;
+  border:1px solid rgba(57,255,20,0.3);
+  box-shadow:0 0 30px rgba(57,255,20,0.2),0 0 60px rgba(0,238,255,0.08),0 0 2px rgba(255,0,255,0.2);
+}
+canvas{display:block;touch-action:none;}
+
+.overlay{position:absolute;inset:0;background:rgba(5,5,16,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:20;opacity:0;pointer-events:none;transition:opacity .4s;border-radius:12px;padding:20px;}
+.overlay.show{opacity:1;pointer-events:all;}
+.ov-title{font-family:'Orbitron',sans-serif;font-size:clamp(20px,6vw,30px);font-weight:900;letter-spacing:4px;animation:glow-pulse 1s ease-in-out infinite alternate;}
+@keyframes glow-pulse{from{text-shadow:0 0 15px currentColor,0 0 30px currentColor;}to{text-shadow:0 0 30px currentColor,0 0 60px currentColor,0 0 90px currentColor;}}
+.ov-stats{font-size:13px;color:#8a7aaa;letter-spacing:2px;text-align:center;line-height:2.2;}
+.ov-stats b{color:#00eeff;text-shadow:0 0 8px #00eeff;}
+.ov-btn{
+  padding:10px 24px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;
+  border-radius:8px;border:1px solid #39ff14;background:rgba(57,255,20,.1);cursor:pointer;color:#39ff14;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  box-shadow:0 0 12px rgba(57,255,20,.25);transition:all .2s;
+}
+.ov-btn:hover{box-shadow:0 0 24px rgba(57,255,20,.5);}
+
+.dpad-row{display:flex;gap:16px;align-items:center;}
+.dpad{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:5px;width:clamp(140px,40vw,170px);}
+.dpad button{
+  aspect-ratio:1;font-size:clamp(15px,4vw,20px);border-radius:8px;
+  border:1px solid rgba(57,255,20,0.3);background:rgba(57,255,20,0.06);
+  cursor:pointer;color:#39ff14;display:flex;align-items:center;justify-content:center;
+  transition:all .12s;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;
+  text-shadow:0 0 6px #39ff14;
+}
+.dpad button:active{transform:scale(.88);background:rgba(57,255,20,.18);box-shadow:0 0 12px rgba(57,255,20,.4);}
+
+.ctrl-btn{
+  padding:9px 16px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;
+  border-radius:8px;border:1px solid rgba(0,238,255,.4);background:rgba(0,238,255,.07);
+  cursor:pointer;color:#00eeff;transition:all .2s;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  text-shadow:0 0 6px #00eeff;
+}
+.hint{font-size:clamp(9px,2.2vw,11px);color:var(--muted);letter-spacing:2px;text-align:center;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="logo">SNAKE</div>
+  <div class="hud">
+    <div class="hud-pill"><div class="hp-label">Score</div><div class="hp-val neon-green" id="score">0</div></div>
+    <div class="hud-pill"><div class="hp-label">Best</div><div class="hp-val neon-pink" id="best">0</div></div>
+    <div class="hud-pill"><div class="hp-label">Level</div><div class="hp-val neon-yellow" id="level">1</div></div>
+    <div class="hud-pill"><div class="hp-label">Length</div><div class="hp-val neon-cyan" id="length">1</div></div>
+  </div>
+  <div class="canvas-wrap" id="wrap">
+    <canvas id="canvas"></canvas>
+    <div class="overlay" id="overlay">
+      <div class="ov-title" style="color:#ff00ff">GAME OVER</div>
+      <div class="ov-stats" id="ov-stats"></div>
+      <button class="ov-btn" onclick="init()">↺ Play Again</button>
+    </div>
+  </div>
+  <div class="dpad-row">
+    <div class="dpad">
+      <div></div><button id="btn-up">↑</button><div></div>
+      <button id="btn-left">←</button><button id="btn-down">↓</button><button id="btn-right">→</button>
+    </div>
+    <button class="ctrl-btn" onclick="init()">↺ Restart</button>
+  </div>
+  <div class="hint">Arrow keys · WASD · Swipe</div>
+</div>
+<script>
+const canvas=document.getElementById('canvas');
+const ctx=canvas.getContext('2d');
+const CELL=20;
+let grid,snake,dir,nextDir,food,score,best=0,level,speed,loop,running=false;
+
+// Vivid snake segment colors
+const SEG_COLORS=['#39ff14','#00eeff','#ff00ff','#ffe600','#ff6b35'];
+
+function resize(){
+  const W=Math.min(document.getElementById('wrap').clientWidth,560);
+  const cols=Math.floor(W/CELL);
+  const rows=Math.min(22,Math.floor(window.innerHeight*.42/CELL));
+  canvas.width=cols*CELL;canvas.height=rows*CELL;
+  grid={w:cols,h:rows};
+}
+
+function init(){
+  resize();
+  snake=[{x:Math.floor(grid.w/2),y:Math.floor(grid.h/2)}];
+  dir={x:1,y:0};nextDir={x:1,y:0};
+  score=0;level=1;speed=180;
+  placeFood();
+  document.getElementById('overlay').classList.remove('show');
+  running=true;clearInterval(loop);loop=setInterval(tick,speed);updateHUD();
+}
+
+function placeFood(){
+  let p;
+  do{p={x:Math.floor(Math.random()*grid.w),y:Math.floor(Math.random()*grid.h)};}
+  while(snake.some(s=>s.x===p.x&&s.y===p.y));
+  food=p;
+}
+
+function tick(){
+  dir={...nextDir};
+  const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+  if(head.x<0||head.y<0||head.x>=grid.w||head.y>=grid.h||snake.some(s=>s.x===head.x&&s.y===head.y)){gameOver();return;}
+  snake.unshift(head);
+  if(head.x===food.x&&head.y===food.y){
+    score+=10*level;if(score>best)best=score;
+    level=Math.floor(score/50)+1;
+    const ns=Math.max(60,180-level*15);
+    if(ns!==speed){speed=ns;clearInterval(loop);loop=setInterval(tick,speed);}
+    placeFood();
+  }else snake.pop();
+  updateHUD();draw();
+}
+
+function gameOver(){
+  clearInterval(loop);running=false;
+  document.getElementById('ov-stats').innerHTML=`Score <b>${score}</b> · Level <b>${level}</b> · Length <b>${snake.length}</b>`;
+  document.getElementById('overlay').classList.add('show');
+}
+
+function updateHUD(){
+  document.getElementById('score').textContent=score;
+  document.getElementById('best').textContent=best;
+  document.getElementById('level').textContent=level;
+  document.getElementById('length').textContent=snake.length;
+}
+
+function draw(){
+  const c=ctx,W=canvas.width,H=canvas.height,CS=CELL;
+  // Dark gradient bg
+  const bg=c.createLinearGradient(0,0,W,H);
+  bg.addColorStop(0,'#030310');bg.addColorStop(.5,'#070714');bg.addColorStop(1,'#030310');
+  c.fillStyle=bg;c.fillRect(0,0,W,H);
+  // Grid
+  c.strokeStyle='rgba(57,255,20,0.06)';c.lineWidth=.5;
+  for(let x=0;x<W;x+=CS){c.beginPath();c.moveTo(x,0);c.lineTo(x,H);c.stroke();}
+  for(let y=0;y<H;y+=CS){c.beginPath();c.moveTo(0,y);c.lineTo(W,y);c.stroke();}
+
+  // Food — rainbow pulsing star
+  const fp=.6+.4*Math.sin(Date.now()/200);
+  const hue=(Date.now()/10)%360;
+  const foodColor=`hsl(${hue},100%,60%)`;
+  const fg=c.createRadialGradient(food.x*CS+CS/2,food.y*CS+CS/2,0,food.x*CS+CS/2,food.y*CS+CS/2,CS);
+  fg.addColorStop(0,`hsla(${hue},100%,65%,${.6*fp})`);fg.addColorStop(1,'transparent');
+  c.fillStyle=fg;c.fillRect(food.x*CS-CS*.4,food.y*CS-CS*.4,CS*1.8,CS*1.8);
+  c.shadowColor=foodColor;c.shadowBlur=18*fp;
+  c.fillStyle=foodColor;
+  c.beginPath();c.arc(food.x*CS+CS/2,food.y*CS+CS/2,CS*.3,0,Math.PI*2);c.fill();
+  // inner spark
+  c.fillStyle='#fff';c.shadowBlur=6;
+  c.beginPath();c.arc(food.x*CS+CS/2,food.y*CS+CS/2,CS*.1,0,Math.PI*2);c.fill();
+  c.shadowBlur=0;
+
+  // Snake — gradient rainbow segments
+  snake.forEach((s,i)=>{
+    const t=i/Math.max(snake.length-1,1);
+    const hue2=(Date.now()/8+i*18)%360;
+    const col=i===0?`hsl(${hue2},100%,55%)`:`hsla(${hue2},100%,50%,${.9-t*.4})`;
+    if(i===0){c.shadowColor=col;c.shadowBlur=14;}else{c.shadowColor=col;c.shadowBlur=4;}
+    c.fillStyle=col;
+    const pad=i===0?1:2;
+    c.beginPath();c.roundRect(s.x*CS+pad,s.y*CS+pad,CS-pad*2,CS-pad*2,i===0?5:3);c.fill();
+    c.shadowBlur=0;
+  });
+  // Eye on head
+  if(snake.length>0){
+    const h=snake[0];
+    c.fillStyle='#000';
+    const ex=h.x*CS+CS/2+dir.x*3,ey=h.y*CS+CS/2+dir.y*3;
+    c.beginPath();c.arc(ex,ey,2.5,0,Math.PI*2);c.fill();
+    c.fillStyle='#fff';c.beginPath();c.arc(ex+.6,ey-.6,1,0,Math.PI*2);c.fill();
+  }
+}
+
+const DIRS={ArrowUp:{x:0,y:-1},w:{x:0,y:-1},W:{x:0,y:-1},ArrowDown:{x:0,y:1},s:{x:0,y:1},S:{x:0,y:1},ArrowLeft:{x:-1,y:0},a:{x:-1,y:0},A:{x:-1,y:0},ArrowRight:{x:1,y:0},d:{x:1,y:0},D:{x:1,y:0}};
+document.addEventListener('keydown',e=>{const d=DIRS[e.key];if(d&&!(d.x===-dir.x&&d.y===-dir.y)){e.preventDefault();nextDir=d;}});
+['up','down','left','right'].forEach(k=>{
+  const d={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}}[k];
+  const btn=document.getElementById('btn-'+k);
+  btn.addEventListener('touchstart',e=>{e.preventDefault();if(!(d.x===-dir.x&&d.y===-dir.y))nextDir=d;},{passive:false});
+  btn.onclick=()=>{if(!(d.x===-dir.x&&d.y===-dir.y))nextDir=d;};
+});
+let tx=0,ty=0;
+canvas.addEventListener('touchstart',e=>{e.preventDefault();tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:false});
+canvas.addEventListener('touchend',e=>{e.preventDefault();const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;if(Math.abs(dx)<8&&Math.abs(dy)<8)return;const d=Math.abs(dx)>Math.abs(dy)?(dx>0?{x:1,y:0}:{x:-1,y:0}):(dy>0?{x:0,y:1}:{x:0,y:-1});if(!(d.x===-dir.x&&d.y===-dir.y))nextDir=d;},{passive:false});
+(function al(){requestAnimationFrame(al);if(running)draw();})();
+window.addEventListener('resize',()=>{if(running){resize();draw();}});
+init();
+</script>
+</body>
+</html>
